@@ -1,1 +1,1 @@
-# -RE-sources-Relationnelles
+# (RE)sources-Relationnelles
