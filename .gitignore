@@ -130,3 +130,12 @@ dist
 .pnp.*
 
 .idea
+
+# Flutter/Dart specific
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+/build/
