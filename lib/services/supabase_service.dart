@@ -47,8 +47,20 @@ class SupabaseService {
         password: password,
       );
       return response;
+    } on AuthException catch (e) {
+      switch (e.statusCode) {
+        case '400':
+          throw Exception('Email ou mot de passe incorrect');
+        case '401':
+          throw Exception(
+              'Veuillez vérifier votre email avant de vous connecter');
+        case '429':
+          throw Exception('Trop de tentatives, veuillez réessayer plus tard');
+        default:
+          throw Exception('Erreur lors de la connexion: ${e.message}');
+      }
     } catch (e) {
-      throw Exception('Erreur lors de la connexion: $e');
+      throw Exception('Une erreur inattendue est survenue: $e');
     }
   }
 

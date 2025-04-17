@@ -212,6 +212,12 @@
       "languageVersion": "3.2"
     },
     {
+      "name": "nested",
+      "rootUri": "file:///C:/Users/x-mar/AppData/Local/Pub/Cache/hosted/pub.dev/nested-1.0.0",
+      "packageUri": "lib/",
+      "languageVersion": "2.12"
+    },
+    {
       "name": "path",
       "rootUri": "file:///C:/Users/x-mar/AppData/Local/Pub/Cache/hosted/pub.dev/path-1.9.1",
       "packageUri": "lib/",
@@ -270,6 +276,12 @@
       "rootUri": "file:///C:/Users/x-mar/AppData/Local/Pub/Cache/hosted/pub.dev/postgrest-2.4.1",
       "packageUri": "lib/",
       "languageVersion": "3.0"
+    },
+    {
+      "name": "provider",
+      "rootUri": "file:///C:/Users/x-mar/AppData/Local/Pub/Cache/hosted/pub.dev/provider-6.1.4",
+      "packageUri": "lib/",
+      "languageVersion": "2.12"
     },
     {
       "name": "realtime_client",
@@ -494,7 +506,7 @@
       "languageVersion": "3.0"
     }
   ],
-  "generated": "2025-04-17T13:17:43.469536Z",
+  "generated": "2025-04-17T13:33:16.340859Z",
   "generator": "pub",
   "generatorVersion": "3.7.2",
   "flutterRoot": "file:///C:/flutter",

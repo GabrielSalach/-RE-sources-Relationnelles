@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../services/supabase_service.dart';
+import 'package:provider/provider.dart';
+import '../services/auth_state.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -13,8 +14,7 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _obscurePassword = true;
-  bool _isLoading = false;
-  final _supabaseService = SupabaseService();
+  String? _errorMessage;
 
   @override
   void dispose() {
@@ -26,13 +26,14 @@ class _LoginPageState extends State<LoginPage> {
   Future<void> _handleSignIn() async {
     if (_formKey.currentState!.validate()) {
       setState(() {
-        _isLoading = true;
+        _errorMessage = null;
       });
 
       try {
-        await _supabaseService.signIn(
-          email: _emailController.text,
-          password: _passwordController.text,
+        final authState = Provider.of<AppAuthState>(context, listen: false);
+        await authState.signIn(
+          _emailController.text,
+          _passwordController.text,
         );
 
         if (mounted) {
@@ -46,17 +47,8 @@ class _LoginPageState extends State<LoginPage> {
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(e.toString()),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      } finally {
-        if (mounted) {
           setState(() {
-            _isLoading = false;
+            _errorMessage = e.toString().replaceAll('Exception: ', '');
           });
         }
       }
@@ -65,6 +57,8 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
+    final authState = Provider.of<AppAuthState>(context);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Connexion'),
@@ -79,14 +73,12 @@ class _LoginPageState extends State<LoginPage> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const SizedBox(height: 20),
-              // Logo ou image
               Icon(
                 Icons.account_circle,
                 size: 100,
                 color: Theme.of(context).colorScheme.primary,
               ),
               const SizedBox(height: 20),
-              // Message de bienvenue
               Text(
                 'Bienvenue !',
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(
@@ -102,7 +94,21 @@ class _LoginPageState extends State<LoginPage> {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 32),
-              // Champ Email
+              if (_errorMessage != null)
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.red.shade200),
+                  ),
+                  child: Text(
+                    _errorMessage!,
+                    style: TextStyle(color: Colors.red.shade700),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
               TextFormField(
                 controller: _emailController,
                 decoration: const InputDecoration(
@@ -122,7 +128,6 @@ class _LoginPageState extends State<LoginPage> {
                 },
               ),
               const SizedBox(height: 16),
-              // Champ Mot de passe
               TextFormField(
                 controller: _passwordController,
                 decoration: InputDecoration(
@@ -151,7 +156,6 @@ class _LoginPageState extends State<LoginPage> {
                 },
               ),
               const SizedBox(height: 8),
-              // Lien Mot de passe oublié
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
@@ -162,15 +166,14 @@ class _LoginPageState extends State<LoginPage> {
                 ),
               ),
               const SizedBox(height: 24),
-              // Bouton de connexion
               ElevatedButton(
-                onPressed: _isLoading ? null : _handleSignIn,
+                onPressed: authState.isLoading ? null : _handleSignIn,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Theme.of(context).colorScheme.primary,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
-                child: _isLoading
+                child: authState.isLoading
                     ? const SizedBox(
                         height: 20,
                         width: 20,
@@ -182,7 +185,6 @@ class _LoginPageState extends State<LoginPage> {
                     : const Text('Se connecter'),
               ),
               const SizedBox(height: 16),
-              // Lien vers l'inscription
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
