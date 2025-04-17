@@ -1,11 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'models/resource.dart';
 import 'services/api_service.dart';
+import 'pages/inscription_page.dart';
+import 'pages/login_page.dart';
 
 Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load();
+
+  await Supabase.initialize(
+    url: dotenv.env['SUPABASE_URL']!,
+    anonKey: dotenv.env['SUPABASE_API_KEY']!,
+  );
+
   runApp(const MyApp());
 }
 
@@ -33,7 +43,12 @@ class MyApp extends StatelessWidget {
           bodyLarge: TextStyle(fontSize: 16, color: Colors.black87),
         ),
       ),
-      home: const HomePage(),
+      initialRoute: '/',
+      routes: {
+        '/': (context) => const HomePage(),
+        '/login': (context) => const LoginPage(),
+        '/inscription': (context) => const InscriptionPage(),
+      },
     );
   }
 }
@@ -91,193 +106,194 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
-      body:
-          _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : _error != null
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
               ? Center(child: Text('Erreur: $_error'))
               : SingleChildScrollView(
-                child: Column(
-                  children: [
-                    // Section Héro
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.primary.withOpacity(0.1),
-                        borderRadius: const BorderRadius.vertical(
-                          bottom: Radius.circular(20),
+                  child: Column(
+                    children: [
+                      // Section Héro
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.primary.withOpacity(0.1),
+                          borderRadius: const BorderRadius.vertical(
+                            bottom: Radius.circular(20),
+                          ),
+                        ),
+                        child: Column(
+                          children: [
+                            const Text(
+                              'Bienvenue sur (RE) Sources Relationnels',
+                              style: TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 10),
+                            const Text(
+                              'Une plateforme pour enrichir vos relations et améliorer votre qualité de vie',
+                              style: TextStyle(fontSize: 16),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 20),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              children: [
+                                ElevatedButton.icon(
+                                  onPressed: () {
+                                    Navigator.pushNamed(context, '/login');
+                                  },
+                                  icon: const Icon(Icons.login),
+                                  label: const Text('Se connecter'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor:
+                                        Theme.of(context).colorScheme.primary,
+                                    foregroundColor: Colors.white,
+                                  ),
+                                ),
+                                ElevatedButton.icon(
+                                  onPressed: () {
+                                    Navigator.pushNamed(
+                                        context, '/inscription');
+                                  },
+                                  icon: const Icon(Icons.person_add),
+                                  label: const Text('S\'inscrire'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor:
+                                        Theme.of(context).colorScheme.secondary,
+                                    foregroundColor: Colors.white,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
                       ),
-                      child: Column(
-                        children: [
-                          const Text(
-                            'Bienvenue sur (RE) Sources Relationnels',
-                            style: TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
+                      const SizedBox(height: 20),
+                      // Section Catégories
+                      Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Découvrez par catégorie',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 10),
-                          const Text(
-                            'Une plateforme pour enrichir vos relations et améliorer votre qualité de vie',
-                            style: TextStyle(fontSize: 16),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 20),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            children: [
-                              ElevatedButton.icon(
-                                onPressed: () {
-                                  // TODO: Navigation vers la connexion
-                                },
-                                icon: const Icon(Icons.login),
-                                label: const Text('Se connecter'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor:
-                                      Theme.of(context).colorScheme.primary,
-                                  foregroundColor: Colors.white,
+                            const SizedBox(height: 10),
+                            GridView.count(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              crossAxisCount: 2,
+                              mainAxisSpacing: 10,
+                              crossAxisSpacing: 10,
+                              children: [
+                                _buildCategoryCard(
+                                  context,
+                                  'Famille',
+                                  Icons.family_restroom,
+                                  const Color(0xFF0063CB),
                                 ),
-                              ),
-                              ElevatedButton.icon(
-                                onPressed: () {
-                                  // TODO: Navigation vers l'inscription
-                                },
-                                icon: const Icon(Icons.person_add),
-                                label: const Text('S\'inscrire'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor:
-                                      Theme.of(context).colorScheme.secondary,
-                                  foregroundColor: Colors.white,
+                                _buildCategoryCard(
+                                  context,
+                                  'Amis',
+                                  Icons.people,
+                                  const Color(0xFFE1000F),
                                 ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    // Section Catégories
-                    Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Découvrez par catégorie',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
+                                _buildCategoryCard(
+                                  context,
+                                  'Couple',
+                                  Icons.favorite,
+                                  const Color(0xFF009099),
+                                ),
+                                _buildCategoryCard(
+                                  context,
+                                  'Travail',
+                                  Icons.work,
+                                  const Color(0xFF6A6AF4),
+                                ),
+                              ],
                             ),
-                          ),
-                          const SizedBox(height: 10),
-                          GridView.count(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            crossAxisCount: 2,
-                            mainAxisSpacing: 10,
-                            crossAxisSpacing: 10,
-                            children: [
-                              _buildCategoryCard(
-                                context,
-                                'Famille',
-                                Icons.family_restroom,
-                                const Color(0xFF0063CB),
-                              ),
-                              _buildCategoryCard(
-                                context,
-                                'Amis',
-                                Icons.people,
-                                const Color(0xFFE1000F),
-                              ),
-                              _buildCategoryCard(
-                                context,
-                                'Couple',
-                                Icons.favorite,
-                                const Color(0xFF009099),
-                              ),
-                              _buildCategoryCard(
-                                context,
-                                'Travail',
-                                Icons.work,
-                                const Color(0xFF6A6AF4),
-                              ),
-                            ],
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                    // Section Ressources récentes
-                    Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text(
-                                'Ressources récentes',
-                                style: TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
+                      // Section Ressources récentes
+                      Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  'Ressources récentes',
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
-                              ),
-                              TextButton.icon(
-                                onPressed: () {
-                                  // TODO: Voir toutes les ressources
-                                },
-                                icon: const Icon(Icons.search),
-                                label: const Text('Voir tout'),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          ListView.builder(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            itemCount: _resources.length,
-                            itemBuilder: (context, index) {
-                              final resource = _resources[index];
-                              return Card(
-                                margin: const EdgeInsets.only(bottom: 10),
-                                child: ListTile(
-                                  leading: CircleAvatar(
-                                    backgroundColor: Theme.of(
-                                      context,
-                                    ).colorScheme.primary.withOpacity(0.1),
-                                    child: const Icon(Icons.article),
-                                  ),
-                                  title: Text(resource.nom),
-                                  subtitle: Text(resource.description),
-                                  trailing: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      IconButton(
-                                        icon: const Icon(Icons.favorite_border),
-                                        onPressed: () {
-                                          // TODO: Ajouter aux favoris
-                                        },
-                                      ),
-                                      const Icon(Icons.arrow_forward_ios),
-                                    ],
-                                  ),
-                                  onTap: () {
-                                    // TODO: Navigation vers le détail de la ressource
+                                TextButton.icon(
+                                  onPressed: () {
+                                    // TODO: Voir toutes les ressources
                                   },
+                                  icon: const Icon(Icons.search),
+                                  label: const Text('Voir tout'),
                                 ),
-                              );
-                            },
-                          ),
-                        ],
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            ListView.builder(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemCount: _resources.length,
+                              itemBuilder: (context, index) {
+                                final resource = _resources[index];
+                                return Card(
+                                  margin: const EdgeInsets.only(bottom: 10),
+                                  child: ListTile(
+                                    leading: CircleAvatar(
+                                      backgroundColor: Theme.of(
+                                        context,
+                                      ).colorScheme.primary.withOpacity(0.1),
+                                      child: const Icon(Icons.article),
+                                    ),
+                                    title: Text(resource.nom),
+                                    subtitle: Text(resource.description),
+                                    trailing: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        IconButton(
+                                          icon:
+                                              const Icon(Icons.favorite_border),
+                                          onPressed: () {
+                                            // TODO: Ajouter aux favoris
+                                          },
+                                        ),
+                                        const Icon(Icons.arrow_forward_ios),
+                                      ],
+                                    ),
+                                    onTap: () {
+                                      // TODO: Navigation vers le détail de la ressource
+                                    },
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
       bottomNavigationBar: BottomNavigationBar(
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Accueil'),
