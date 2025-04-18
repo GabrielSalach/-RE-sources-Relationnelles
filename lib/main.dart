@@ -8,6 +8,7 @@ import 'services/api_service.dart';
 import 'services/auth_state.dart';
 import 'pages/inscription_page.dart';
 import 'pages/login_page.dart';
+import 'pages/resources_list_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -55,6 +56,7 @@ class MyApp extends StatelessWidget {
         '/': (context) => const HomePage(),
         '/login': (context) => const LoginPage(),
         '/inscription': (context) => const InscriptionPage(),
+        '/resources': (context) => const ResourcesListPage(),
       },
     );
   }
@@ -72,6 +74,7 @@ class _HomePageState extends State<HomePage> {
   List<Resource> _resources = [];
   bool _isLoading = true;
   String? _error;
+  int _selectedIndex = 0;
 
   @override
   void initState() {
@@ -274,7 +277,8 @@ class _HomePageState extends State<HomePage> {
                                     ),
                                     TextButton.icon(
                                       onPressed: () {
-                                        // TODO: Voir toutes les ressources
+                                        Navigator.pushNamed(
+                                            context, '/resources');
                                       },
                                       icon: const Icon(Icons.search),
                                       label: const Text('Voir tout'),
@@ -340,13 +344,28 @@ class _HomePageState extends State<HomePage> {
               BottomNavigationBarItem(
                   icon: Icon(Icons.person), label: 'Profil'),
             ],
-            currentIndex: 0,
+            currentIndex: _selectedIndex,
             type: BottomNavigationBarType.fixed,
             backgroundColor: Theme.of(context).colorScheme.primary,
             selectedItemColor: Colors.white,
             unselectedItemColor: Colors.white.withOpacity(0.6),
             onTap: (index) {
-              // TODO: Navigation entre les pages
+              setState(() {
+                _selectedIndex = index;
+              });
+              switch (index) {
+                case 0: // Accueil
+                  break;
+                case 1: // Rechercher
+                  Navigator.pushNamed(context, '/resources');
+                  break;
+                case 2: // Favoris
+                  // TODO: Navigation vers les favoris
+                  break;
+                case 3: // Profil
+                  // TODO: Navigation vers le profil
+                  break;
+              }
             },
           ),
         );
