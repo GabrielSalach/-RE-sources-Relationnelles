@@ -1,7 +1,7 @@
 class Resource {
   final int id;
   final String nom;
-  final int format;
+  final String format;
   final String contenu;
   final String description;
   final DateTime date;
@@ -27,13 +27,12 @@ class Resource {
     return Resource(
       id: json['id'] as int,
       nom: json['nom'] as String,
-      format: json['format'] as int,
+      format: (json['format'] as int).toString(),
       contenu: json['contenue'] as String,
       description: json['description'] ?? '',
-      date:
-          json['date'] != null
-              ? DateTime.parse(json['date'] as String)
-              : DateTime.now(),
+      date: json['date'] != null
+          ? DateTime.parse(json['date'] as String)
+          : DateTime.now(),
       nbCom: json['nbCom'] as int? ?? 0,
       nbLike: json['nbLike'] as int? ?? 0,
       nbReport: json['nbReport'] as int? ?? 0,
@@ -45,7 +44,7 @@ class Resource {
     return {
       'id': id,
       'nom': nom,
-      'format': format,
+      'format': int.parse(format),
       'contenue': contenu,
       'description': description,
       'date': date.toIso8601String(),
