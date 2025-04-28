@@ -10,6 +10,7 @@ import 'services/auth_state.dart';
 import 'pages/inscription_page.dart';
 import 'pages/login_page.dart';
 import 'pages/resources_list_page.dart';
+import 'pages/favoris_page.dart';
 import 'widgets/ressource_card.dart';
 
 Future<void> main() async {
@@ -59,6 +60,7 @@ class MyApp extends StatelessWidget {
         '/login': (context) => const LoginPage(),
         '/inscription': (context) => const InscriptionPage(),
         '/resources': (context) => const ResourcesListPage(),
+        '/favoris': (context) => const FavorisPage(),
       },
     );
   }
@@ -345,7 +347,7 @@ class _HomePageState extends State<HomePage> {
                   break;
                 case 2: // Favoris
                   if (isAuthenticated) {
-                    // TODO: Navigation vers les favoris
+                    Navigator.pushNamed(context, '/favoris');
                   } else {
                     Navigator.pushNamed(context, '/login');
                   }

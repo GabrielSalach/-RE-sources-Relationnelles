@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../models/ressource.dart';
 import '../services/ressource_service.dart';
+import 'package:provider/provider.dart';
+import '../services/auth_state.dart';
 
 class RessourceCard extends StatefulWidget {
   final Ressource ressource;
@@ -13,11 +15,48 @@ class RessourceCard extends StatefulWidget {
 class _RessourceCardState extends State<RessourceCard> {
   String? auteur;
   final RessourceService _ressourceService = RessourceService();
+  bool isLiked = false;
+  bool isFavori = false;
+  bool isSignaled = false;
+  int nbLike = 0;
+  int nbReport = 0;
+  String? utilisateurId;
+  bool isFavoriLoading = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final currentUser = context.read<AppAuthState>().currentUser;
+      utilisateurId = currentUser?.id;
+      _initStates();
+    });
     _loadAuteur();
+    nbLike = widget.ressource.nbLike;
+    nbReport = widget.ressource.nbReport;
+  }
+
+  Future<void> _initStates() async {
+    if (utilisateurId == null) return;
+    final intId = int.parse(utilisateurId!);
+    final liked = await _ressourceService.hasLiked(widget.ressource.id, intId);
+    final favori =
+        await _ressourceService.hasFavori(widget.ressource.id, intId);
+    final signaled =
+        await _ressourceService.hasSignaled(widget.ressource.id, intId);
+    setState(() {
+      isLiked = liked;
+      isFavori = favori;
+      isSignaled = signaled;
+    });
+    await _refreshNbLike();
+  }
+
+  Future<void> _refreshNbLike() async {
+    final nb = await _ressourceService.fetchNbLike(widget.ressource.id);
+    setState(() {
+      nbLike = nb;
+    });
   }
 
   Future<void> _loadAuteur() async {
@@ -257,15 +296,138 @@ class _RessourceCardState extends State<RessourceCard> {
                   ),
                   Row(
                     children: [
-                      Icon(Icons.thumb_up,
-                          size: 16, color: Colors.grey.shade600),
-                      const SizedBox(width: 4),
-                      Text('${widget.ressource.nbLike}'),
-                      const SizedBox(width: 12),
-                      Icon(Icons.comment,
-                          size: 16, color: Colors.grey.shade600),
-                      const SizedBox(width: 4),
-                      Text('${widget.ressource.nbCom}'),
+                      IconButton(
+                        icon: Icon(
+                          isLiked ? Icons.thumb_up : Icons.thumb_up_outlined,
+                          color: isLiked ? Colors.blue : Colors.grey.shade600,
+                          size: 20,
+                        ),
+                        tooltip: 'J\'aime',
+                        onPressed: utilisateurId == null || isSignaled
+                            ? null
+                            : () async {
+                                setState(() {
+                                  isLiked = !isLiked;
+                                });
+                                if (isLiked) {
+                                  await _ressourceService.likeRessource(
+                                      widget.ressource.id,
+                                      int.parse(utilisateurId!));
+                                } else {
+                                  await _ressourceService.unlikeRessource(
+                                      widget.ressource.id,
+                                      int.parse(utilisateurId!));
+                                }
+                                await _refreshNbLike();
+                              },
+                      ),
+                      Text('$nbLike'),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 300),
+                          transitionBuilder: (child, anim) =>
+                              ScaleTransition(scale: anim, child: child),
+                          child: Icon(
+                            isFavori ? Icons.star : Icons.star_border,
+                            key: ValueKey(isFavori),
+                            color:
+                                isFavori ? Colors.amber : Colors.grey.shade600,
+                            size: 20,
+                          ),
+                        ),
+                        tooltip: isFavori
+                            ? 'Retirer des favoris'
+                            : 'Ajouter aux favoris',
+                        onPressed: utilisateurId == null ||
+                                isSignaled ||
+                                isFavoriLoading
+                            ? null
+                            : () async {
+                                setState(() {
+                                  isFavoriLoading = true;
+                                });
+                                try {
+                                  setState(() {
+                                    isFavori = !isFavori;
+                                  });
+                                  if (isFavori) {
+                                    await _ressourceService.addFavoris(
+                                        widget.ressource.id,
+                                        int.parse(utilisateurId!));
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        const SnackBar(
+                                            content: Text('Ajouté aux favoris'),
+                                            backgroundColor: Colors.green),
+                                      );
+                                    }
+                                  } else {
+                                    await _ressourceService.removeFavoris(
+                                        widget.ressource.id,
+                                        int.parse(utilisateurId!));
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        const SnackBar(
+                                            content: Text('Retiré des favoris'),
+                                            backgroundColor: Colors.orange),
+                                      );
+                                    }
+                                  }
+                                } finally {
+                                  setState(() {
+                                    isFavoriLoading = false;
+                                  });
+                                }
+                              },
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: Icon(
+                          Icons.flag,
+                          color: isSignaled ? Colors.red : Colors.grey.shade600,
+                          size: 20,
+                        ),
+                        tooltip: 'Signaler',
+                        onPressed: utilisateurId == null || isSignaled
+                            ? null
+                            : () {
+                                showDialog(
+                                  context: context,
+                                  builder: (context) => AlertDialog(
+                                    title: const Text(
+                                        'Signaler cette ressource ?'),
+                                    content: const Text(
+                                        'Voulez-vous vraiment signaler cette ressource ?'),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(context),
+                                        child: const Text('Annuler'),
+                                      ),
+                                      TextButton(
+                                        onPressed: () async {
+                                          await _ressourceService
+                                              .signalerRessource(
+                                                  widget.ressource.id,
+                                                  int.parse(utilisateurId!));
+                                          setState(() {
+                                            isSignaled = true;
+                                            nbReport++;
+                                          });
+                                          Navigator.pop(context);
+                                        },
+                                        child: const Text('Signaler',
+                                            style:
+                                                TextStyle(color: Colors.red)),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                      ),
+                      Text('$nbReport'),
                     ],
                   ),
                 ],
