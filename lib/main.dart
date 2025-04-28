@@ -4,11 +4,14 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:provider/provider.dart';
 import 'models/resource.dart';
+import 'models/ressource.dart';
 import 'services/api_service.dart';
 import 'services/auth_state.dart';
 import 'pages/inscription_page.dart';
 import 'pages/login_page.dart';
 import 'pages/resources_list_page.dart';
+import 'pages/favoris_page.dart';
+import 'widgets/ressource_card.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -57,6 +60,7 @@ class MyApp extends StatelessWidget {
         '/login': (context) => const LoginPage(),
         '/inscription': (context) => const InscriptionPage(),
         '/resources': (context) => const ResourcesListPage(),
+        '/favoris': (context) => const FavorisPage(),
       },
     );
   }
@@ -80,6 +84,11 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _loadResources();
+    // Attendre que le widget soit monté avant de charger l'utilisateur
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // L'utilisateur est déjà chargé dans le constructeur de AppAuthState
+      // donc pas besoin d'appeler loadCurrentUser ici
+    });
   }
 
   Future<void> _loadResources() async {
@@ -101,6 +110,10 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Consumer<AppAuthState>(
       builder: (context, authState, child) {
+        print(
+            'HomePage: Rebuild avec isAuthenticated = ${authState.isAuthenticated}');
+        final isAuthenticated = authState.isAuthenticated;
+
         return Scaffold(
           appBar: AppBar(
             title: const Text(
@@ -110,10 +123,11 @@ class _HomePageState extends State<HomePage> {
             backgroundColor: Theme.of(context).colorScheme.primary,
             foregroundColor: Colors.white,
             actions: [
-              if (authState.isAuthenticated)
+              if (isAuthenticated)
                 IconButton(
                   icon: const Icon(Icons.logout),
                   onPressed: () async {
+                    print('HomePage: Déconnexion demandée');
                     await authState.signOut();
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -129,6 +143,7 @@ class _HomePageState extends State<HomePage> {
                 IconButton(
                   icon: const Icon(Icons.person),
                   onPressed: () {
+                    print('HomePage: Navigation vers la page de connexion');
                     Navigator.pushNamed(context, '/login');
                   },
                 ),
@@ -141,7 +156,7 @@ class _HomePageState extends State<HomePage> {
                   : SingleChildScrollView(
                       child: Column(
                         children: [
-                          if (!authState.isAuthenticated)
+                          if (!isAuthenticated)
                             Container(
                               padding: const EdgeInsets.all(20),
                               decoration: BoxDecoration(
@@ -292,38 +307,9 @@ class _HomePageState extends State<HomePage> {
                                   itemCount: _resources.length,
                                   itemBuilder: (context, index) {
                                     final resource = _resources[index];
-                                    return Card(
-                                      margin: const EdgeInsets.only(bottom: 10),
-                                      child: ListTile(
-                                        leading: CircleAvatar(
-                                          backgroundColor: Theme.of(
-                                            context,
-                                          )
-                                              .colorScheme
-                                              .primary
-                                              .withOpacity(0.1),
-                                          child: const Icon(Icons.article),
-                                        ),
-                                        title: Text(resource.nom),
-                                        subtitle: Text(resource.description),
-                                        trailing: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            IconButton(
-                                              icon: const Icon(
-                                                  Icons.favorite_border),
-                                              onPressed: () {
-                                                // TODO: Ajouter aux favoris
-                                              },
-                                            ),
-                                            const Icon(Icons.arrow_forward_ios),
-                                          ],
-                                        ),
-                                        onTap: () {
-                                          // TODO: Navigation vers le détail de la ressource
-                                        },
-                                      ),
-                                    );
+                                    final ressource =
+                                        Ressource.fromJson(resource.toJson());
+                                    return RessourceCard(ressource: ressource);
                                   },
                                 ),
                               ],
@@ -360,10 +346,18 @@ class _HomePageState extends State<HomePage> {
                   Navigator.pushNamed(context, '/resources');
                   break;
                 case 2: // Favoris
-                  // TODO: Navigation vers les favoris
+                  if (isAuthenticated) {
+                    Navigator.pushNamed(context, '/favoris');
+                  } else {
+                    Navigator.pushNamed(context, '/login');
+                  }
                   break;
                 case 3: // Profil
-                  // TODO: Navigation vers le profil
+                  if (isAuthenticated) {
+                    // TODO: Navigation vers le profil
+                  } else {
+                    Navigator.pushNamed(context, '/login');
+                  }
                   break;
               }
             },
