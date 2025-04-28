@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import '../models/resource.dart';
-import '../services/api_service.dart';
+import '../services/ressource_service.dart';
+import '../widgets/ressource_card.dart';
+import '../models/ressource.dart';
 
 class ResourcesListPage extends StatefulWidget {
   const ResourcesListPage({super.key});
@@ -10,57 +11,31 @@ class ResourcesListPage extends StatefulWidget {
 }
 
 class _ResourcesListPageState extends State<ResourcesListPage> {
-  final ApiService _apiService = ApiService();
-  List<Resource> _resources = [];
-  bool _isLoading = true;
-  String? _error;
+  late Future<List<Ressource>> _ressourcesFuture;
+  final RessourceService _ressourceService = RessourceService();
+  List<Ressource> _allRessources = [];
   String _searchQuery = '';
-  String _selectedCategory = 'Tous';
-
-  final List<String> _categories = [
-    'Tous',
-    'Famille',
-    'Amis',
-    'Couple',
-    'Travail'
-  ];
+  int? _selectedFormat; // null = tous, 1=texte, 2=photo, 3=vidéo
 
   @override
   void initState() {
     super.initState();
-    _loadResources();
+    _ressourcesFuture = _ressourceService.getAllRessources();
+    _ressourcesFuture.then((data) {
+      setState(() {
+        _allRessources = data;
+      });
+    });
   }
 
-  Future<void> _loadResources() async {
-    try {
-      setState(() {
-        _isLoading = true;
-        _error = null;
-      });
-
-      final resources = await _apiService.getResources();
-      setState(() {
-        _resources = resources;
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _error = e.toString();
-        _isLoading = false;
-      });
-    }
-  }
-
-  List<Resource> get _filteredResources {
-    return _resources.where((resource) {
+  List<Ressource> get _filteredRessources {
+    return _allRessources.where((r) {
       final matchesSearch =
-          resource.nom.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-              resource.description
-                  .toLowerCase()
-                  .contains(_searchQuery.toLowerCase());
-      final matchesCategory =
-          _selectedCategory == 'Tous' || resource.format == _selectedCategory;
-      return matchesSearch && matchesCategory;
+          r.nom.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+              r.description.toLowerCase().contains(_searchQuery.toLowerCase());
+      final matchesFormat =
+          _selectedFormat == null || r.format == _selectedFormat;
+      return matchesSearch && matchesFormat;
     }).toList();
   }
 
@@ -72,145 +47,107 @@ class _ResourcesListPageState extends State<ResourcesListPage> {
         backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
       ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              children: [
-                // Barre de recherche
-                TextField(
-                  decoration: InputDecoration(
-                    hintText: 'Rechercher une ressource...',
-                    prefixIcon: const Icon(Icons.search),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
+      body: FutureBuilder<List<Ressource>>(
+        future: _ressourcesFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          } else if (snapshot.hasError) {
+            return Center(
+              child: Text('Erreur lors du chargement :\n${snapshot.error}'),
+            );
+          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+            return const Center(
+              child: Text('Aucune ressource disponible.'),
+            );
+          }
+          // Initialiser _allRessources si vide ou différent
+          if (_allRessources.isEmpty ||
+              _allRessources.length != snapshot.data!.length) {
+            _allRessources = snapshot.data!;
+          }
+          return Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  children: [
+                    TextField(
+                      decoration: InputDecoration(
+                        hintText: 'Rechercher une ressource...',
+                        prefixIcon: const Icon(Icons.search),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      onChanged: (value) {
+                        setState(() {
+                          _searchQuery = value;
+                        });
+                      },
                     ),
-                  ),
-                  onChanged: (value) {
-                    setState(() {
-                      _searchQuery = value;
-                    });
-                  },
-                ),
-                const SizedBox(height: 16),
-                // Filtres par catégorie
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: _categories.map((category) {
-                      final isSelected = _selectedCategory == category;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: FilterChip(
-                          selected: isSelected,
-                          label: Text(category),
-                          onSelected: (selected) {
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        FilterChip(
+                          label: const Text('Tous'),
+                          selected: _selectedFormat == null,
+                          onSelected: (_) {
                             setState(() {
-                              _selectedCategory = selected ? category : 'Tous';
+                              _selectedFormat = null;
                             });
                           },
-                          backgroundColor: isSelected
-                              ? Theme.of(context).colorScheme.primary
-                              : null,
-                          labelStyle: TextStyle(
-                            color: isSelected ? Colors.white : null,
-                          ),
                         ),
-                      );
-                    }).toList(),
-                  ),
+                        const SizedBox(width: 8),
+                        FilterChip(
+                          label: const Text('Texte'),
+                          selected: _selectedFormat == 1,
+                          onSelected: (_) {
+                            setState(() {
+                              _selectedFormat = 1;
+                            });
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        FilterChip(
+                          label: const Text('Photo'),
+                          selected: _selectedFormat == 2,
+                          onSelected: (_) {
+                            setState(() {
+                              _selectedFormat = 2;
+                            });
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        FilterChip(
+                          label: const Text('Vidéo'),
+                          selected: _selectedFormat == 3,
+                          onSelected: (_) {
+                            setState(() {
+                              _selectedFormat = 3;
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _error != null
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text('Erreur: $_error'),
-                            const SizedBox(height: 16),
-                            ElevatedButton(
-                              onPressed: _loadResources,
-                              child: const Text('Réessayer'),
-                            ),
-                          ],
-                        ),
-                      )
-                    : _filteredResources.isEmpty
-                        ? const Center(
-                            child: Text('Aucune ressource trouvée'),
-                          )
-                        : RefreshIndicator(
-                            onRefresh: _loadResources,
-                            child: ListView.builder(
-                              padding: const EdgeInsets.all(16),
-                              itemCount: _filteredResources.length,
-                              itemBuilder: (context, index) {
-                                final resource = _filteredResources[index];
-                                return Card(
-                                  margin: const EdgeInsets.only(bottom: 12),
-                                  child: ListTile(
-                                    leading: CircleAvatar(
-                                      backgroundColor: Theme.of(context)
-                                          .colorScheme
-                                          .primary
-                                          .withOpacity(0.1),
-                                      child: const Icon(Icons.article),
-                                    ),
-                                    title: Text(
-                                      resource.nom,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    subtitle: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        const SizedBox(height: 4),
-                                        Text(resource.description),
-                                        const SizedBox(height: 4),
-                                        Chip(
-                                          label: Text(
-                                            resource.format,
-                                            style:
-                                                const TextStyle(fontSize: 12),
-                                          ),
-                                          backgroundColor: Theme.of(context)
-                                              .colorScheme
-                                              .primary
-                                              .withOpacity(0.1),
-                                        ),
-                                      ],
-                                    ),
-                                    trailing: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        IconButton(
-                                          icon:
-                                              const Icon(Icons.favorite_border),
-                                          onPressed: () {
-                                            // TODO: Ajouter aux favoris
-                                          },
-                                        ),
-                                        const Icon(Icons.arrow_forward_ios),
-                                      ],
-                                    ),
-                                    onTap: () {
-                                      // TODO: Navigation vers le détail de la ressource
-                                    },
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-          ),
-        ],
+              ),
+              Expanded(
+                child: _filteredRessources.isEmpty
+                    ? const Center(child: Text('Aucune ressource trouvée.'))
+                    : ListView.builder(
+                        itemCount: _filteredRessources.length,
+                        itemBuilder: (context, index) {
+                          final ressource = _filteredRessources[index];
+                          return RessourceCard(ressource: ressource);
+                        },
+                      ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

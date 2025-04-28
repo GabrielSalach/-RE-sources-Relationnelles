@@ -4,11 +4,13 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:provider/provider.dart';
 import 'models/resource.dart';
+import 'models/ressource.dart';
 import 'services/api_service.dart';
 import 'services/auth_state.dart';
 import 'pages/inscription_page.dart';
 import 'pages/login_page.dart';
 import 'pages/resources_list_page.dart';
+import 'widgets/ressource_card.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -303,38 +305,9 @@ class _HomePageState extends State<HomePage> {
                                   itemCount: _resources.length,
                                   itemBuilder: (context, index) {
                                     final resource = _resources[index];
-                                    return Card(
-                                      margin: const EdgeInsets.only(bottom: 10),
-                                      child: ListTile(
-                                        leading: CircleAvatar(
-                                          backgroundColor: Theme.of(
-                                            context,
-                                          )
-                                              .colorScheme
-                                              .primary
-                                              .withOpacity(0.1),
-                                          child: const Icon(Icons.article),
-                                        ),
-                                        title: Text(resource.nom),
-                                        subtitle: Text(resource.description),
-                                        trailing: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            IconButton(
-                                              icon: const Icon(
-                                                  Icons.favorite_border),
-                                              onPressed: () {
-                                                // TODO: Ajouter aux favoris
-                                              },
-                                            ),
-                                            const Icon(Icons.arrow_forward_ios),
-                                          ],
-                                        ),
-                                        onTap: () {
-                                          // TODO: Navigation vers le détail de la ressource
-                                        },
-                                      ),
-                                    );
+                                    final ressource =
+                                        Ressource.fromJson(resource.toJson());
+                                    return RessourceCard(ressource: ressource);
                                   },
                                 ),
                               ],

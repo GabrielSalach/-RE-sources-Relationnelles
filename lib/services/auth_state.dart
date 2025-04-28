@@ -74,12 +74,7 @@ class AppAuthState extends ChangeNotifier {
     required String password,
     required String nom,
     required String prenom,
-    required String role,
-    DateTime? dateNaissance,
-    String? adresse,
-    String? codePostal,
-    String? ville,
-    String? telephone,
+    required DateTime dateNaissance,
   }) async {
     _isLoading = true;
     _error = null;
@@ -91,11 +86,13 @@ class AppAuthState extends ChangeNotifier {
           .from('utilisateur')
           .select()
           .eq('email', email)
-          .single();
+          .maybeSingle();
 
-      throw Exception('Un compte existe déjà avec cet email');
+      if (existingUser != null) {
+        throw Exception('Un compte existe déjà avec cet email');
+      }
 
-      // Créer l'utilisateur dans la table utilisateur
+      // Créer l'utilisateur dans la table utilisateur avec les champs essentiels
       final userData = await _supabase
           .from('utilisateur')
           .insert({
@@ -103,13 +100,9 @@ class AppAuthState extends ChangeNotifier {
             'motDePasse': password,
             'nom': nom,
             'prenom': prenom,
-            'role': role,
-            'date_naissance': dateNaissance?.toIso8601String(),
-            'adresse': adresse,
-            'code_postal': codePostal,
-            'ville': ville,
-            'telephone': telephone,
-            'is_verified': false,
+            'dateDeNaissance': dateNaissance.toIso8601String(),
+            'compteVerif': false,
+            'role': 6,
           })
           .select()
           .single();
