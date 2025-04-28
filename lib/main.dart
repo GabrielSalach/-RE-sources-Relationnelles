@@ -80,6 +80,11 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _loadResources();
+    // Attendre que le widget soit monté avant de charger l'utilisateur
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // L'utilisateur est déjà chargé dans le constructeur de AppAuthState
+      // donc pas besoin d'appeler loadCurrentUser ici
+    });
   }
 
   Future<void> _loadResources() async {
@@ -101,6 +106,10 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Consumer<AppAuthState>(
       builder: (context, authState, child) {
+        print(
+            'HomePage: Rebuild avec isAuthenticated = ${authState.isAuthenticated}');
+        final isAuthenticated = authState.isAuthenticated;
+
         return Scaffold(
           appBar: AppBar(
             title: const Text(
@@ -110,10 +119,11 @@ class _HomePageState extends State<HomePage> {
             backgroundColor: Theme.of(context).colorScheme.primary,
             foregroundColor: Colors.white,
             actions: [
-              if (authState.isAuthenticated)
+              if (isAuthenticated)
                 IconButton(
                   icon: const Icon(Icons.logout),
                   onPressed: () async {
+                    print('HomePage: Déconnexion demandée');
                     await authState.signOut();
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -129,6 +139,7 @@ class _HomePageState extends State<HomePage> {
                 IconButton(
                   icon: const Icon(Icons.person),
                   onPressed: () {
+                    print('HomePage: Navigation vers la page de connexion');
                     Navigator.pushNamed(context, '/login');
                   },
                 ),
@@ -141,7 +152,7 @@ class _HomePageState extends State<HomePage> {
                   : SingleChildScrollView(
                       child: Column(
                         children: [
-                          if (!authState.isAuthenticated)
+                          if (!isAuthenticated)
                             Container(
                               padding: const EdgeInsets.all(20),
                               decoration: BoxDecoration(
@@ -360,10 +371,18 @@ class _HomePageState extends State<HomePage> {
                   Navigator.pushNamed(context, '/resources');
                   break;
                 case 2: // Favoris
-                  // TODO: Navigation vers les favoris
+                  if (isAuthenticated) {
+                    // TODO: Navigation vers les favoris
+                  } else {
+                    Navigator.pushNamed(context, '/login');
+                  }
                   break;
                 case 3: // Profil
-                  // TODO: Navigation vers le profil
+                  if (isAuthenticated) {
+                    // TODO: Navigation vers le profil
+                  } else {
+                    Navigator.pushNamed(context, '/login');
+                  }
                   break;
               }
             },
