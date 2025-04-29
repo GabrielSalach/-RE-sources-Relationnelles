@@ -12,10 +12,18 @@ class RessourceService {
   }
 
   Future<List<Ressource>> getRessourcesByUser(int utilisateurId) async {
-    final response = await _supabase
-        .from('ressource')
-        .select()
-        .eq('utilisateur_id', utilisateurId);
+    // 1. Récupérer les ressourceID de la table auteur
+    final liaisonRows = await _supabase
+        .from('auteur')
+        .select('ressourceID')
+        .eq('utilisateurID', utilisateurId);
+    if ((liaisonRows as List).isEmpty) return [];
+    final ressourceIds =
+        (liaisonRows as List).map((row) => row['ressourceID'] as int).toList();
+    // 2. Charger les ressources correspondantes
+    if (ressourceIds.isEmpty) return [];
+    final response =
+        await _supabase.from('ressource').select().inFilter('id', ressourceIds);
     return (response as List)
         .map((json) => Ressource.fromJson(json as Map<String, dynamic>))
         .toList();
@@ -110,39 +118,69 @@ class RessourceService {
         .eq('utilisateurID', utilisateurId);
   }
 
-  Future<void> signalerRessource(int ressourceId, int utilisateurId) async {
+  Future<void> signalerRessource(
+      int ressourceId, int utilisateurId, String motif) async {
+    // Insérer le signalement
     await _supabase.from('signalementRessource').insert({
       'ressourceID': ressourceId,
       'utilisateurID': utilisateurId,
+      'commentaire': motif,
       'date': DateTime.now().toIso8601String(),
+      'verifier': false,
     });
+
+    // Incrémenter le compteur de signalements
+    await _supabase
+        .rpc('increment_report_count', params: {'ressource_id': ressourceId});
   }
 
   Future<bool> hasLiked(int ressourceId, int utilisateurId) async {
-    final rows = await _supabase
-        .from('jaimeRessource')
-        .select('id')
-        .eq('ressourceID', ressourceId)
-        .eq('utilisateurID', utilisateurId);
-    return (rows as List).isNotEmpty;
+    try {
+      final rows = await _supabase
+          .from('jaimeRessource')
+          .select('id')
+          .eq('ressourceID', ressourceId)
+          .eq('utilisateurID', utilisateurId);
+      print(
+          'hasLiked - ressourceId: $ressourceId, utilisateurId: $utilisateurId, result: ${(rows as List).isNotEmpty}');
+      return (rows as List).isNotEmpty;
+    } catch (e) {
+      print('hasLiked - Erreur: $e');
+      return false;
+    }
   }
 
   Future<bool> hasFavori(int ressourceId, int utilisateurId) async {
-    final rows = await _supabase
-        .from('favoris')
-        .select('id')
-        .eq('ressourceID', ressourceId)
-        .eq('utilisateurID', utilisateurId);
-    return (rows as List).isNotEmpty;
+    try {
+      final rows = await _supabase
+          .from('favoris')
+          .select('id')
+          .eq('ressourceID', ressourceId)
+          .eq('utilisateurID', utilisateurId);
+      print(
+          'hasFavori - ressourceId: $ressourceId, utilisateurId: $utilisateurId, result: ${(rows as List).isNotEmpty}');
+      return (rows as List).isNotEmpty;
+    } catch (e) {
+      print('hasFavori - Erreur: $e');
+      return false;
+    }
   }
 
   Future<bool> hasSignaled(int ressourceId, int utilisateurId) async {
-    final rows = await _supabase
-        .from('signalementRessource')
-        .select('id')
-        .eq('ressourceID', ressourceId)
-        .eq('utilisateurID', utilisateurId);
-    return (rows as List).isNotEmpty;
+    try {
+      final response = await _supabase
+          .from('signalementRessource')
+          .select()
+          .eq('ressourceID', ressourceId)
+          .eq('utilisateurID', utilisateurId)
+          .maybeSingle();
+      print(
+          'hasSignaled - ressourceId: $ressourceId, utilisateurId: $utilisateurId, result: ${response != null}');
+      return response != null;
+    } catch (e) {
+      print('hasSignaled - Erreur: $e');
+      return false;
+    }
   }
 
   Future<int> fetchNbLike(int ressourceId) async {
@@ -169,5 +207,15 @@ class RessourceService {
     return (response as List)
         .map((json) => Ressource.fromJson(json as Map<String, dynamic>))
         .toList();
+  }
+
+  Future<int?> getAuteurUtilisateurId(int ressourceId) async {
+    final liaison = await _supabase
+        .from('auteur')
+        .select('utilisateurID')
+        .eq('ressourceID', ressourceId)
+        .maybeSingle();
+    if (liaison == null || liaison['utilisateurID'] == null) return null;
+    return liaison['utilisateurID'] as int;
   }
 }

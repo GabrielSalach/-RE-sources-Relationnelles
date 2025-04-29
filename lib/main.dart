@@ -11,7 +11,11 @@ import 'pages/inscription_page.dart';
 import 'pages/login_page.dart';
 import 'pages/resources_list_page.dart';
 import 'pages/favoris_page.dart';
+import 'pages/profil_page.dart';
+import 'pages/profil_public_page.dart';
 import 'widgets/ressource_card.dart';
+import 'pages/moderation_commentaires_page.dart';
+import 'pages/moderation_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -61,6 +65,7 @@ class MyApp extends StatelessWidget {
         '/inscription': (context) => const InscriptionPage(),
         '/resources': (context) => const ResourcesListPage(),
         '/favoris': (context) => const FavorisPage(),
+        '/profil': (context) => const ProfilPage(),
       },
     );
   }
@@ -123,7 +128,24 @@ class _HomePageState extends State<HomePage> {
             backgroundColor: Theme.of(context).colorScheme.primary,
             foregroundColor: Colors.white,
             actions: [
-              if (isAuthenticated)
+              if (isAuthenticated) ...[
+                // Bouton modération (si Super Admin, Admin, Modérateur)
+                if (authState.currentUser != null &&
+                    (authState.currentUser!.role == '1' ||
+                        authState.currentUser!.role == '2' ||
+                        authState.currentUser!.role == '3'))
+                  IconButton(
+                    icon: const Icon(Icons.admin_panel_settings),
+                    tooltip: 'Modération',
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const ModerationPage(),
+                        ),
+                      );
+                    },
+                  ),
                 IconButton(
                   icon: const Icon(Icons.logout),
                   onPressed: () async {
@@ -138,8 +160,8 @@ class _HomePageState extends State<HomePage> {
                       );
                     }
                   },
-                )
-              else
+                ),
+              ] else
                 IconButton(
                   icon: const Icon(Icons.person),
                   onPressed: () {
@@ -354,7 +376,16 @@ class _HomePageState extends State<HomePage> {
                   break;
                 case 3: // Profil
                   if (isAuthenticated) {
-                    // TODO: Navigation vers le profil
+                    final userId = authState.currentUser?.id;
+                    if (userId != null) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ProfilPublicPage(
+                              utilisateurId: int.parse(userId)),
+                        ),
+                      );
+                    }
                   } else {
                     Navigator.pushNamed(context, '/login');
                   }
