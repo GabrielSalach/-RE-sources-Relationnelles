@@ -14,10 +14,10 @@ class AppAuthState extends ChangeNotifier {
   String? get error => _error;
 
   AppAuthState() {
-    _loadCurrentUser();
+    loadCurrentUser();
   }
 
-  Future<void> _loadCurrentUser() async {
+  Future<void> loadCurrentUser() async {
     try {
       final session = _supabase.auth.currentSession;
       if (session != null) {
