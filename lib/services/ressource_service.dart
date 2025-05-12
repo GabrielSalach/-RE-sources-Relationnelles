@@ -4,6 +4,9 @@ import '../models/ressource.dart';
 class RessourceService {
   final SupabaseClient _supabase = Supabase.instance.client;
 
+  // Getter pour accéder à l'instance Supabase
+  SupabaseClient get supabase => _supabase;
+
   Future<List<Ressource>> getAllRessources() async {
     final response = await _supabase.from('ressource').select();
     return (response as List)
@@ -102,7 +105,7 @@ class RessourceService {
     await updateNbLike(ressourceId);
   }
 
-  Future<void> addFavoris(int ressourceId, int utilisateurId) async {
+  Future<void> addFavori(int ressourceId, int utilisateurId) async {
     await _supabase.from('favoris').insert({
       'ressourceID': ressourceId,
       'utilisateurID': utilisateurId,
@@ -110,12 +113,26 @@ class RessourceService {
     });
   }
 
-  Future<void> removeFavoris(int ressourceId, int utilisateurId) async {
+  Future<void> removeFavori(int ressourceId, int utilisateurId) async {
     await _supabase
         .from('favoris')
         .delete()
         .eq('ressourceID', ressourceId)
         .eq('utilisateurID', utilisateurId);
+  }
+
+  Future<bool> isRessourceFavorite(int ressourceId, int utilisateurId) async {
+    try {
+      final rows = await _supabase
+          .from('favoris')
+          .select('id')
+          .eq('ressourceID', ressourceId)
+          .eq('utilisateurID', utilisateurId);
+      return (rows as List).isNotEmpty;
+    } catch (e) {
+      print('isRessourceFavorite - Erreur: $e');
+      return false;
+    }
   }
 
   Future<void> signalerRessource(
@@ -146,22 +163,6 @@ class RessourceService {
       return (rows as List).isNotEmpty;
     } catch (e) {
       print('hasLiked - Erreur: $e');
-      return false;
-    }
-  }
-
-  Future<bool> hasFavori(int ressourceId, int utilisateurId) async {
-    try {
-      final rows = await _supabase
-          .from('favoris')
-          .select('id')
-          .eq('ressourceID', ressourceId)
-          .eq('utilisateurID', utilisateurId);
-      print(
-          'hasFavori - ressourceId: $ressourceId, utilisateurId: $utilisateurId, result: ${(rows as List).isNotEmpty}');
-      return (rows as List).isNotEmpty;
-    } catch (e) {
-      print('hasFavori - Erreur: $e');
       return false;
     }
   }
@@ -217,5 +218,97 @@ class RessourceService {
         .maybeSingle();
     if (liaison == null || liaison['utilisateurID'] == null) return null;
     return liaison['utilisateurID'] as int;
+  }
+
+  // Méthodes pour les ressources exploitées
+  Future<void> marquerRessourceExploitee(
+      int ressourceId, int utilisateurId) async {
+    try {
+      await _supabase.from('ressourceExploitee').upsert({
+        'ressourceid': ressourceId,
+        'utilisateurid': utilisateurId,
+      });
+    } catch (e) {
+      throw Exception(
+          'Erreur lors du marquage de la ressource comme exploitée: $e');
+    }
+  }
+
+  Future<void> deMarquerRessourceExploitee(
+      int ressourceId, int utilisateurId) async {
+    try {
+      await _supabase
+          .from('ressourceExploitee')
+          .delete()
+          .match({'ressourceid': ressourceId, 'utilisateurid': utilisateurId});
+    } catch (e) {
+      throw Exception(
+          'Erreur lors du retrait de la ressource des exploitées: $e');
+    }
+  }
+
+  Future<bool> isRessourceExploitee(int ressourceId, int utilisateurId) async {
+    try {
+      final result = await _supabase
+          .from('ressourceExploitee')
+          .select()
+          .match({'ressourceid': ressourceId, 'utilisateurid': utilisateurId});
+      return result.isNotEmpty;
+    } catch (e) {
+      throw Exception(
+          'Erreur lors de la vérification de ressource exploitée: $e');
+    }
+  }
+
+  // Méthodes pour les ressources mises de côté
+  Future<void> marquerRessourceMiseDeCote(
+      int ressourceId, int utilisateurId) async {
+    try {
+      await _supabase.from('ressourceMiseDeCote').upsert({
+        'ressourceid': ressourceId,
+        'utilisateurid': utilisateurId,
+      });
+    } catch (e) {
+      throw Exception(
+          'Erreur lors du marquage de la ressource comme mise de côté: $e');
+    }
+  }
+
+  Future<void> deMarquerRessourceMiseDeCote(
+      int ressourceId, int utilisateurId) async {
+    try {
+      await _supabase
+          .from('ressourceMiseDeCote')
+          .delete()
+          .match({'ressourceid': ressourceId, 'utilisateurid': utilisateurId});
+    } catch (e) {
+      throw Exception(
+          'Erreur lors du retrait de la ressource des mises de côté: $e');
+    }
+  }
+
+  Future<bool> isRessourceMiseDeCote(int ressourceId, int utilisateurId) async {
+    try {
+      final result = await _supabase
+          .from('ressourceMiseDeCote')
+          .select()
+          .match({'ressourceid': ressourceId, 'utilisateurid': utilisateurId});
+      return result.isNotEmpty;
+    } catch (e) {
+      throw Exception(
+          'Erreur lors de la vérification de ressource mise de côté: $e');
+    }
+  }
+
+  // Méthode utilitaire pour charger plusieurs ressources par leurs IDs
+  Future<List<Ressource>> getRessourcesByIdList(List<int> ids) async {
+    if (ids.isEmpty) return [];
+    try {
+      final result =
+          await _supabase.from('ressource').select().inFilter('id', ids);
+      return result.map((json) => Ressource.fromJson(json)).toList();
+    } catch (e) {
+      throw Exception('Erreur lors du chargement des ressources par IDs: $e');
+    }
   }
 }
