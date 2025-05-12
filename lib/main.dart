@@ -16,8 +16,9 @@ import 'pages/profil_public_page.dart';
 import 'widgets/ressource_card.dart';
 import 'pages/moderation_commentaires_page.dart';
 import 'pages/moderation_page.dart';
+import 'pages/progression_page.dart';
 
-Future<void> main() async {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load();
 
@@ -350,6 +351,8 @@ class _HomePageState extends State<HomePage> {
               BottomNavigationBarItem(
                   icon: Icon(Icons.favorite), label: 'Favoris'),
               BottomNavigationBarItem(
+                  icon: Icon(Icons.library_books), label: 'Bibliothèque'),
+              BottomNavigationBarItem(
                   icon: Icon(Icons.person), label: 'Profil'),
             ],
             currentIndex: _selectedIndex,
@@ -374,7 +377,19 @@ class _HomePageState extends State<HomePage> {
                     Navigator.pushNamed(context, '/login');
                   }
                   break;
-                case 3: // Profil
+                case 3: // Progression
+                  if (isAuthenticated) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ProgressionPage(),
+                      ),
+                    );
+                  } else {
+                    Navigator.pushNamed(context, '/login');
+                  }
+                  break;
+                case 4: // Profil
                   if (isAuthenticated) {
                     final userId = authState.currentUser?.id;
                     if (userId != null) {
@@ -407,15 +422,13 @@ class _HomePageState extends State<HomePage> {
     return Card(
       elevation: 2,
       child: InkWell(
-        onTap: () async {
-          try {
-            final resources = await _apiService.getResourcesByFormat(title);
-            // TODO: Naviguer vers la page de format avec les ressources
-          } catch (e) {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(SnackBar(content: Text('Erreur: $e')));
-          }
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ResourcesListPage(initialCategorie: title),
+            ),
+          );
         },
         child: Container(
           padding: const EdgeInsets.all(16),

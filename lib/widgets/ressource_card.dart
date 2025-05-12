@@ -5,6 +5,9 @@ import 'package:provider/provider.dart';
 import '../services/auth_state.dart';
 import '../pages/profil_public_page.dart';
 import 'commentaires_section.dart';
+import 'package:video_player/video_player.dart';
+import 'package:youtube_player_flutter/youtube_player_flutter.dart';
+import 'dart:async';
 
 class RessourceCard extends StatefulWidget {
   final Ressource ressource;
@@ -22,40 +25,37 @@ class _RessourceCardState extends State<RessourceCard> {
   bool isSignaled = false;
   int nbLike = 0;
   int nbReport = 0;
-  String? utilisateurId;
   bool isFavoriLoading = false;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final currentUser = context.read<AppAuthState>().currentUser;
-      print('RessourceCard - User ID: ${currentUser?.id}');
-      utilisateurId = currentUser?.id;
-      _initStates();
-    });
     _loadAuteur();
     nbLike = widget.ressource.nbLike;
     nbReport = widget.ressource.nbReport;
+    _initStates();
   }
 
   Future<void> _initStates() async {
     print('_initStates - Début de l\'initialisation');
-    if (utilisateurId == null) {
+    final authState = context.read<AppAuthState>();
+    final currentUser = authState.currentUser;
+
+    if (currentUser == null) {
       print('_initStates - Pas d\'utilisateur connecté');
       return;
     }
 
     try {
-      final intId = int.parse(utilisateurId!);
+      final intId = int.parse(currentUser.id);
       print('_initStates - Vérification des états pour l\'utilisateur $intId');
 
       final liked =
           await _ressourceService.hasLiked(widget.ressource.id, intId);
       print('_initStates - hasLiked: $liked');
 
-      final favori =
-          await _ressourceService.hasFavori(widget.ressource.id, intId);
+      final favori = await _ressourceService.isRessourceFavorite(
+          widget.ressource.id, intId);
       print('_initStates - hasFavori: $favori');
 
       final signaled =
@@ -156,30 +156,22 @@ class _RessourceCardState extends State<RessourceCard> {
         );
         break;
       case 2:
-        contenuWidget = Image.network(
-          widget.ressource.contenue,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) =>
-              const Icon(Icons.broken_image),
-        );
+        contenuWidget = widget.ressource.getDisplayUrl() != null
+            ? Image.network(
+                widget.ressource.getDisplayUrl()!,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) =>
+                    const Icon(Icons.broken_image),
+              )
+            : const Icon(Icons.broken_image);
         break;
       case 3:
         contenuWidget = Column(
           children: [
             AspectRatio(
               aspectRatio: 16 / 9,
-              child: widget.ressource.contenue.startsWith('http')
-                  ? Image.network(
-                      widget.ressource.contenue,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) =>
-                          const Icon(Icons.broken_image),
-                    )
-                  : const Icon(Icons.videocam),
+              child: VideoPlayerWidget(url: widget.ressource.contenue),
             ),
-            const SizedBox(height: 8),
-            Text('Vidéo : ${widget.ressource.contenue}',
-                style: const TextStyle(fontSize: 14)),
           ],
         );
         break;
@@ -228,18 +220,9 @@ class _RessourceCardState extends State<RessourceCard> {
                               children: [
                                 AspectRatio(
                                   aspectRatio: 16 / 9,
-                                  child: widget.ressource.contenue
-                                          .startsWith('http')
-                                      ? Image.network(widget.ressource.contenue,
-                                          fit: BoxFit.cover,
-                                          errorBuilder: (context, error,
-                                                  stackTrace) =>
-                                              const Icon(Icons.broken_image))
-                                      : const Icon(Icons.videocam),
+                                  child: VideoPlayerWidget(
+                                      url: widget.ressource.contenue),
                                 ),
-                                const SizedBox(height: 8),
-                                Text('Vidéo : ${widget.ressource.contenue}',
-                                    style: const TextStyle(fontSize: 14)),
                               ],
                             ),
                           const SizedBox(height: 16),
@@ -360,79 +343,45 @@ class _RessourceCardState extends State<RessourceCard> {
                     size: 20,
                   ),
                   tooltip: 'J\'aime',
-                  onPressed: utilisateurId == null
-                      ? null
-                      : () async {
-                          setState(() {
-                            isLiked = !isLiked;
-                          });
-                          if (isLiked) {
-                            await _ressourceService.likeRessource(
-                                widget.ressource.id, int.parse(utilisateurId!));
-                          } else {
-                            await _ressourceService.unlikeRessource(
-                                widget.ressource.id, int.parse(utilisateurId!));
-                          }
-                          await _refreshNbLike();
-                        },
+                  onPressed: () async {
+                    final authState = context.read<AppAuthState>();
+                    final currentUser = authState.currentUser;
+
+                    if (currentUser == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Vous devez être connecté pour liker'),
+                          backgroundColor: Colors.orange,
+                        ),
+                      );
+                      return;
+                    }
+
+                    setState(() {
+                      isLiked = !isLiked;
+                    });
+                    try {
+                      final intId = int.parse(currentUser.id);
+                      if (isLiked) {
+                        await _ressourceService.likeRessource(
+                            widget.ressource.id, intId);
+                      } else {
+                        await _ressourceService.unlikeRessource(
+                            widget.ressource.id, intId);
+                      }
+                      await _refreshNbLike();
+                    } catch (e) {
+                      print('Erreur lors du like: $e');
+                      setState(() {
+                        isLiked =
+                            !isLiked; // Annuler le changement en cas d'erreur
+                      });
+                    }
+                  },
                 ),
                 Text('$nbLike'),
                 const SizedBox(width: 8),
-                IconButton(
-                  icon: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 300),
-                    transitionBuilder: (child, anim) =>
-                        ScaleTransition(scale: anim, child: child),
-                    child: Icon(
-                      isFavori ? Icons.star : Icons.star_border,
-                      key: ValueKey(isFavori),
-                      color: isFavori ? Colors.amber : Colors.grey.shade600,
-                      size: 20,
-                    ),
-                  ),
-                  tooltip:
-                      isFavori ? 'Retirer des favoris' : 'Ajouter aux favoris',
-                  onPressed:
-                      utilisateurId == null || isSignaled || isFavoriLoading
-                          ? null
-                          : () async {
-                              setState(() {
-                                isFavoriLoading = true;
-                              });
-                              try {
-                                setState(() {
-                                  isFavori = !isFavori;
-                                });
-                                if (isFavori) {
-                                  await _ressourceService.addFavoris(
-                                      widget.ressource.id,
-                                      int.parse(utilisateurId!));
-                                  if (mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                          content: Text('Ajouté aux favoris'),
-                                          backgroundColor: Colors.green),
-                                    );
-                                  }
-                                } else {
-                                  await _ressourceService.removeFavoris(
-                                      widget.ressource.id,
-                                      int.parse(utilisateurId!));
-                                  if (mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                          content: Text('Retiré des favoris'),
-                                          backgroundColor: Colors.orange),
-                                    );
-                                  }
-                                }
-                              } finally {
-                                setState(() {
-                                  isFavoriLoading = false;
-                                });
-                              }
-                            },
-                ),
+                _buildActions(context),
                 const SizedBox(width: 8),
                 IconButton(
                   icon: Icon(
@@ -441,80 +390,330 @@ class _RessourceCardState extends State<RessourceCard> {
                     size: 20,
                   ),
                   tooltip: isSignaled ? 'Déjà signalé' : 'Signaler',
-                  onPressed: utilisateurId == null || isSignaled
-                      ? null
-                      : () {
-                          final TextEditingController motifController =
-                              TextEditingController();
-                          showDialog(
-                            context: context,
-                            builder: (context) => AlertDialog(
-                              title: const Text('Signaler cette ressource'),
-                              content: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Text(
-                                      'Pour quelle raison souhaitez-vous signaler cette ressource ?'),
-                                  const SizedBox(height: 16),
-                                  TextField(
-                                    controller: motifController,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Motif du signalement',
-                                      border: OutlineInputBorder(),
-                                    ),
-                                    maxLines: 3,
-                                  ),
-                                ],
+                  onPressed: () {
+                    final authState = context.read<AppAuthState>();
+                    final currentUser = authState.currentUser;
+
+                    if (currentUser == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content:
+                              Text('Vous devez être connecté pour signaler'),
+                          backgroundColor: Colors.orange,
+                        ),
+                      );
+                      return;
+                    }
+                    if (isSignaled) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content:
+                              Text('Vous avez déjà signalé cette ressource'),
+                          backgroundColor: Colors.orange,
+                        ),
+                      );
+                      return;
+                    }
+                    final TextEditingController motifController =
+                        TextEditingController();
+                    showDialog(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Signaler cette ressource'),
+                        content: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text(
+                                'Pour quelle raison souhaitez-vous signaler cette ressource ?'),
+                            const SizedBox(height: 16),
+                            TextField(
+                              controller: motifController,
+                              decoration: const InputDecoration(
+                                labelText: 'Motif du signalement',
+                                border: OutlineInputBorder(),
                               ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(context),
-                                  child: const Text('Annuler'),
-                                ),
-                                TextButton(
-                                  onPressed: () async {
-                                    if (motifController.text.trim().isEmpty) {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        const SnackBar(
-                                          content: Text(
-                                              'Veuillez indiquer un motif'),
-                                          backgroundColor: Colors.orange,
-                                        ),
-                                      );
-                                      return;
-                                    }
-                                    await _ressourceService.signalerRessource(
-                                      widget.ressource.id,
-                                      int.parse(utilisateurId!),
-                                      motifController.text.trim(),
-                                    );
-                                    setState(() {
-                                      isSignaled = true;
-                                      nbReport++;
-                                    });
-                                    if (mounted) {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        const SnackBar(
-                                          content: Text('Ressource signalée'),
-                                          backgroundColor: Colors.green,
-                                        ),
-                                      );
-                                    }
-                                    Navigator.pop(context);
-                                  },
-                                  child: const Text('Signaler',
-                                      style: TextStyle(color: Colors.red)),
-                                ),
-                              ],
+                              maxLines: 3,
                             ),
-                          );
-                        },
+                          ],
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('Annuler'),
+                          ),
+                          TextButton(
+                            onPressed: () async {
+                              if (motifController.text.trim().isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Veuillez indiquer un motif'),
+                                    backgroundColor: Colors.orange,
+                                  ),
+                                );
+                                return;
+                              }
+                              try {
+                                final intId = int.parse(currentUser.id);
+                                await _ressourceService.signalerRessource(
+                                  widget.ressource.id,
+                                  intId,
+                                  motifController.text.trim(),
+                                );
+                                setState(() {
+                                  isSignaled = true;
+                                  nbReport++;
+                                });
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Ressource signalée'),
+                                      backgroundColor: Colors.green,
+                                    ),
+                                  );
+                                }
+                                Navigator.pop(context);
+                              } catch (e) {
+                                print('Erreur lors du signalement: $e');
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Erreur lors du signalement'),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              }
+                            },
+                            child: const Text('Signaler',
+                                style: TextStyle(color: Colors.red)),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
                 ),
                 Text('$nbReport'),
               ],
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActions(BuildContext context) {
+    final authState = context.watch<AppAuthState>();
+    final userId = authState.currentUser?.id;
+
+    if (userId == null) return const SizedBox.shrink();
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        // Bouton Favori existant
+        FutureBuilder<bool>(
+          future: _ressourceService.isRessourceFavorite(
+              widget.ressource.id, int.parse(userId)),
+          builder: (context, snapshot) {
+            if (!snapshot.hasData) return const SizedBox.shrink();
+            final isFavorite = snapshot.data!;
+            return IconButton(
+              icon: Icon(
+                isFavorite ? Icons.star : Icons.star_border,
+                color: isFavorite ? Colors.amber : null,
+              ),
+              onPressed: () async {
+                if (isFavorite) {
+                  await _ressourceService.removeFavori(
+                      widget.ressource.id, int.parse(userId));
+                } else {
+                  await _ressourceService.addFavori(
+                      widget.ressource.id, int.parse(userId));
+                }
+                setState(() {});
+              },
+            );
+          },
+        ),
+
+        // Bouton Exploitée
+        FutureBuilder<bool>(
+          future: _ressourceService.isRessourceExploitee(
+              widget.ressource.id, int.parse(userId)),
+          builder: (context, snapshot) {
+            if (!snapshot.hasData) return const SizedBox.shrink();
+            final isExploitee = snapshot.data!;
+            return IconButton(
+              icon: Icon(
+                isExploitee ? Icons.check_circle : Icons.check_circle_outline,
+                color: isExploitee ? Colors.green : null,
+              ),
+              onPressed: () async {
+                if (isExploitee) {
+                  await _ressourceService.deMarquerRessourceExploitee(
+                      widget.ressource.id, int.parse(userId));
+                } else {
+                  await _ressourceService.marquerRessourceExploitee(
+                      widget.ressource.id, int.parse(userId));
+                }
+                setState(() {});
+              },
+              tooltip: isExploitee
+                  ? 'Marquer comme non consultée'
+                  : 'Marquer comme consultée',
+            );
+          },
+        ),
+
+        // Bouton Mise de côté
+        FutureBuilder<bool>(
+          future: _ressourceService.isRessourceMiseDeCote(
+              widget.ressource.id, int.parse(userId)),
+          builder: (context, snapshot) {
+            if (!snapshot.hasData) return const SizedBox.shrink();
+            final isMiseDeCote = snapshot.data!;
+            return IconButton(
+              icon: Icon(
+                isMiseDeCote ? Icons.bookmark : Icons.bookmark_border,
+                color: isMiseDeCote ? Colors.blue : null,
+              ),
+              onPressed: () async {
+                if (isMiseDeCote) {
+                  await _ressourceService.deMarquerRessourceMiseDeCote(
+                      widget.ressource.id, int.parse(userId));
+                } else {
+                  await _ressourceService.marquerRessourceMiseDeCote(
+                      widget.ressource.id, int.parse(userId));
+                }
+                setState(() {});
+              },
+              tooltip: isMiseDeCote
+                  ? 'Retirer des ressources à voir'
+                  : 'Marquer à voir plus tard',
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class VideoPlayerWidget extends StatefulWidget {
+  final String url;
+  const VideoPlayerWidget({super.key, required this.url});
+
+  @override
+  State<VideoPlayerWidget> createState() => _VideoPlayerWidgetState();
+}
+
+class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
+  late VideoPlayerController _controller;
+  late YoutubePlayerController _youtubeController;
+  bool isYoutubeVideo = false;
+  bool _showControls = true;
+  Timer? _hideTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    isYoutubeVideo = YoutubePlayer.convertUrlToId(widget.url) != null;
+
+    if (isYoutubeVideo) {
+      _youtubeController = YoutubePlayerController(
+        initialVideoId: YoutubePlayer.convertUrlToId(widget.url)!,
+        flags: const YoutubePlayerFlags(
+          autoPlay: false,
+          mute: false,
+        ),
+      );
+    } else {
+      _controller = VideoPlayerController.networkUrl(Uri.parse(widget.url))
+        ..initialize().then((_) {
+          setState(() {});
+        });
+    }
+  }
+
+  void _startHideTimer() {
+    _hideTimer?.cancel();
+    _hideTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted && _controller.value.isPlaying) {
+        setState(() {
+          _showControls = false;
+        });
+      }
+    });
+  }
+
+  void _handleTap() {
+    setState(() {
+      _showControls = true;
+    });
+    _startHideTimer();
+  }
+
+  @override
+  void dispose() {
+    _hideTimer?.cancel();
+    if (!isYoutubeVideo) {
+      _controller.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (isYoutubeVideo) {
+      return YoutubePlayer(
+        controller: _youtubeController,
+        showVideoProgressIndicator: true,
+        progressColors: const ProgressBarColors(
+          playedColor: Colors.red,
+          handleColor: Colors.redAccent,
+        ),
+      );
+    }
+
+    if (!_controller.value.isInitialized) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return GestureDetector(
+      onTap: _handleTap,
+      child: AspectRatio(
+        aspectRatio: _controller.value.aspectRatio,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            VideoPlayer(_controller),
+            if (_showControls)
+              AnimatedOpacity(
+                opacity: _showControls ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 300),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.black26,
+                    borderRadius: BorderRadius.circular(50),
+                  ),
+                  child: IconButton(
+                    iconSize: 50,
+                    onPressed: () {
+                      setState(() {
+                        if (_controller.value.isPlaying) {
+                          _controller.pause();
+                        } else {
+                          _controller.play();
+                          _startHideTimer();
+                        }
+                      });
+                    },
+                    icon: Icon(
+                      _controller.value.isPlaying
+                          ? Icons.pause
+                          : Icons.play_arrow,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),

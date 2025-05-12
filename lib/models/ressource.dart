@@ -9,6 +9,8 @@ class Ressource {
   final int nbLike;
   final int nbReport;
   final bool visible;
+  final String categorie;
+  final String? imageUrl;
 
   Ressource({
     required this.id,
@@ -21,6 +23,8 @@ class Ressource {
     required this.nbLike,
     required this.nbReport,
     required this.visible,
+    required this.categorie,
+    this.imageUrl,
   });
 
   factory Ressource.fromJson(Map<String, dynamic> json) {
@@ -43,6 +47,8 @@ class Ressource {
           ? json['nbReport']
           : int.parse(json['nbReport'].toString()),
       visible: json['visible'] == true || json['visible'] == 'TRUE',
+      categorie: json['categorie'] ?? '',
+      imageUrl: json['imageUrl'],
     );
   }
 
@@ -58,6 +64,20 @@ class Ressource {
       'nbLike': nbLike,
       'nbReport': nbReport,
       'visible': visible,
+      'categorie': categorie,
+      'imageUrl': imageUrl,
     };
+  }
+
+  // Obtenir l'URL de l'image en fonction du format
+  String? getDisplayUrl() {
+    if (format == 2) {
+      // Photo
+      return imageUrl ?? contenue;
+    } else if (format == 3) {
+      // Vidéo
+      return imageUrl; // L'URL de la miniature de la vidéo
+    }
+    return null;
   }
 }
