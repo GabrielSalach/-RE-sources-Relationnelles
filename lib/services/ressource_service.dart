@@ -50,7 +50,6 @@ class RessourceService {
       'nbLike': 0,
       'nbReport': 0,
       'visible': true,
-      'utilisateur_id': utilisateurId,
     };
     final response =
         await _supabase.from('ressource').insert(data).select().single();

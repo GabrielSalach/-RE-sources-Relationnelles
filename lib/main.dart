@@ -17,6 +17,7 @@ import 'widgets/ressource_card.dart';
 import 'pages/moderation_commentaires_page.dart';
 import 'pages/moderation_page.dart';
 import 'pages/progression_page.dart';
+import 'pages/create_resource_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -67,6 +68,7 @@ class MyApp extends StatelessWidget {
         '/resources': (context) => const ResourcesListPage(),
         '/favoris': (context) => const FavorisPage(),
         '/profil': (context) => const ProfilPage(),
+        '/resources/create': (context) => const CreateResourcePage(),
       },
     );
   }
@@ -341,6 +343,15 @@ class _HomePageState extends State<HomePage> {
                         ],
                       ),
                     ),
+          floatingActionButton: isAuthenticated
+              ? FloatingActionButton(
+                  onPressed: () {
+                    Navigator.pushNamed(context, '/resources/create');
+                  },
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  child: const Icon(Icons.add, color: Colors.white),
+                )
+              : null,
           bottomNavigationBar: BottomNavigationBar(
             items: const [
               BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Accueil'),

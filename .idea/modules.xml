@@ -3,7 +3,6 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/resource_relationnelles.iml" filepath="$PROJECT_DIR$/resource_relationnelles.iml" />
-      <module fileurl="file://$PROJECT_DIR$/android/resource_relationnelles_android.iml" filepath="$PROJECT_DIR$/android/resource_relationnelles_android.iml" />
     </modules>
   </component>
 </project>
